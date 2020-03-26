@@ -10,53 +10,50 @@ nextflow run main.nf --input "*fastq" --outdir output_folder
 */
 params.input = false
 params.outdir = 'repeatexplorer'
-params.fasta = "athaliana_tair10.fasta"
+
+// Cloned Repeat Explorer 2 in March, 2020 
+// URL: git clone git@bitbucket.org:rbpisupati/repex_tarean.git
 params.REPEXPLORER_PATH = "/home/superstar/rahul/000.softwares/repex_tarean/"
 
 
 
-//input files
+// Fastq sampling, filtering options
+params.sample_fastq = 1000000 // 1 million reads
+params.min_quality = 30 //
+
+
+//input fastq paired files
 input_files = Channel
-    .fromPath ( params.input )
-    .map { [ "$it.baseName", file("$it") ] }
+    .fromFilePairs ( params.input )
     .ifEmpty { exit 1, "Cannot find any input files matching: ${params.input}\nNB: Path needs to be enclosed in quotes!\n" }
 
 
-// process fastqc {
-//     tag "$name"
-//     label 'env_small_snpcall'
-//     publishDir "${params.outdir}/fastqc", mode: 'copy',
-//         saveAs: {filename -> filename.indexOf(".zip") > 0 ? "zips/$filename" : "$filename"}
-
-//     input:
-//     set val(name), file(reads) from read_files_fastqc
-
-//     output:
-//     file '*_fastqc.{zip,html}' into fastqc_results
-
-//     script:
-//     """
-//     fastqc -q $reads
-//     """
-// }
-
-process fastqc {
+process filteringFastq {
     tag "$name"
-    label 'env_small_snpcall'
-    publishDir "${params.outdir}/trimmed_fastq", mode: 'copy'
+    publishDir "${params.outdir}/sampledFastq", mode: 'copy'
 
     input:
     set val(name), file(reads) from input_files
 
     output:
-    file '*_fastqc.{zip,html}' into fastqc_results
+    set val(name), file("${name}.filtered.fas") into interleaved_fastq
+    file("${name}.filtered.png") into out_inter_png
 
     script:
+    num_reads = params.sample_fastq / 2
     """
-    fastqc -q $reads
-    """
-}
+    seqtk sample -s100 ${reads[0]} $num_reads > ${name}.sample.1.fq
+    seqtk sample -s100 ${reads[1]} $num_reads > ${name}.sample.2.fq
 
+    ${params.REPEXPLORER_PATH}/re_utilities/paired_fastq_filtering_wrapper.sh \
+    -a ${name}.sample.1.fq  -b ${name}.sample.2.fq \
+    -c $params.min_quality \
+    -G ${name}.filtered.png \
+    -N 0 -R -o ${name}.filtered.fas
+    """
+    // fastq_quality_filter -Q33 -q $params.min_quality -i ${name}.sample.1.fq -o ${name}.qual.sampled.1.fq
+    // fastq_quality_filter -Q33 -q $params.min_quality -i ${name}.sample.2.fq -o ${name}.qual.sampled.2.fq
+}
 
 
 process repExplorer {
@@ -64,7 +61,7 @@ process repExplorer {
     publishDir "$params.outdir", mode: 'copy'
 
     input:
-    set val(name), file(inter_fastq) from input_files
+    set val(name), file(inter_fastq) from interleaved_fastq
 
     output:
     file("cluster_out") into explorer_out
