@@ -1,2 +1,3 @@
-# nf-repeatexplorer
-Nextflow Pipeline for running Repeat Explorer
+# Nextflow pipeline for running RepeatExplorer
+
+More details on running and installation coming soon.
