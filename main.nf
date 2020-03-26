@@ -64,10 +64,12 @@ process repExplorer {
     set val(name), file(inter_fastq) from interleaved_fastq
 
     output:
-    file("cluster_out") into explorer_out
+    file("re_${name}") into explorer_out
 
     script:
     """
-    ${params.REPEXPLORER_PATH}/seqclust -p -c ${task.cpus} -r ${task.memory.toKilo()} -v cluster_out $inter_fastq
+    ${params.REPEXPLORER_PATH}/seqclust -p \
+    -c ${task.cpus} -r ${task.memory.toKilo()} \
+    -v re_${name} $inter_fastq
     """
 }
